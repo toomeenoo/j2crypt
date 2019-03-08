@@ -22,12 +22,18 @@ class J2crypt
 	public $duration = 0;	
 	
 	public function __construct(){
+		// For old php versions: 
+		if(!function_exists("random_int")){
+			function random_int($from, $to){
+				return rand ( $from, $to );
+			}
+		}
 		return $this;
 	}
 
     public function toFile($filename) {
 		file_put_contents($filename, "");
-		$output_real = $this->geTcrypted("raw");
+		$output_real = $this->getCrypted("raw");
 		$fil = fopen($filename,"w+");
 		fwrite($fil, $output_real);
     }
@@ -40,21 +46,21 @@ class J2crypt
 		}else{
 			echo $this->getCrypted("raw");
 		}
-    }
+  }
 	
 	private function lock($datalen = NULL){
 		$this->lockmap = "";
 		$data = $this->data;
 		$magicUnknown = rand(0, 127);
 		$width = $this->dataSize[0];
-		$height = $this->dataSize[1];
+		$height = ord(substr($data,-1));
 		$datalen = is_null($datalen) ? strlen($data) : $datalen;	
 		$output = array($width, $height, $magicUnknown);
 		$bin7 = sprintf("%'.07b%'.07b%'.07b", $width, $height%128, $magicUnknown);
         $i = 0;
 		$r = 0;
 		$c = 0;
-		while($i < $datalen && $r < $height){
+		while($i < $datalen /* && $r < $height*/){
 			$c = 0;
 			while($i < $datalen && $c < $width){
 				$mc = $c % $this->mapSize[0];
@@ -106,7 +112,7 @@ class J2crypt
 		}
 		$remaining = strlen($output_real);
 		$output_real .= "00000000";
-		$output_raw = [];
+		$output_raw = array();
 		$i = 0;
 		$ch8 = "";
 		while($i < $remaining || strlen($ch8)){
@@ -125,7 +131,7 @@ class J2crypt
 		return $this->unlock($content);
 	}
 
-	public function getCrypted($format){
+	public function getCrypted($format = "raw"){
 		$out = $this->locked();
 		if($format == "raw" || $format == "base64"){
 			$output_real = $this->getRaw();
@@ -150,12 +156,12 @@ class J2crypt
 		$this->dataSize = $this->rectFrom(strlen($data));
 		$this->precomputed = false;
 		return $this;
-    }
-	
+  }
+
 	public function unlock($content){
 		$i = 0;
 		$len = strlen($content);
-		$data = [];
+		$data = array();
 		$binString = "";
 		while($i < $len){
 			$binString .= sprintf("%'.08b", ord($content[$i]));
@@ -169,7 +175,7 @@ class J2crypt
 		$r = 0;
 		$c = 0;
 		$width = $data[0];
-		$height = $data[1];
+		$lastchar = $data[1];
 		$magicUnknown = $data[2];
 		$output = "";
 		$datalen = count($data);
@@ -190,6 +196,9 @@ class J2crypt
 				$i++;
 			}
 			$r ++;
+		}
+		while($lastchar != ord(substr($output, -1)) && strlen($output)){
+			$output = substr($output, 0, -1);
 		}
 		return $output;
 	}
@@ -220,11 +229,11 @@ class J2crypt
 		return $this->setMap($raw_map_data, intval($obj["width"]), intval($obj["height"]));
 	}
 	
-	private function rectFrom($int, $aLimit = 128){
+	private function rectFrom($int, $aLimit = 127){
 		$dataLen = $int;
 		$b = $dataLen;
 		$a = 1;
-		$nums = [2,3,5,7,11,13];
+		$nums = array(2,3,5,7,11,13);
 		$i = 0;
 		while($i<6){
 			$n = $nums[$i];
@@ -237,15 +246,16 @@ class J2crypt
 		if((($a*$n)<$aLimit) && $a < $b/3){
 			return $this->rectFrom($int+1);
 		}
-		return [$a, $b,  $int];
-	}
 
+		return array($a, $b,  $int);
+	}
 	
-	private function generateMap(){
-		$this->mapSize = [6,6];
+	private function generateMap($width = 6, $height = 6){
+		$this->mapSize = array($width, $height);
 		$this->map = sha1($this->password, true).md5($this->password, true);
 		$this->precomputed = false;
 	}
+
 	public function getMap(){
 		$ret = '{"width":'.$this->mapSize[0].',"height":'.$this->mapSize[1].',"dataHex":"';
 		$i = 0;
