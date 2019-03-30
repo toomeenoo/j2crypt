@@ -155,7 +155,6 @@ J2crypt.prototype.lock = function(data){
 		}
 		return [a, b,  dataLen];
 	}
-	window.rc = rectFrom; //REMOVEME
 
 	var dataSize = rectFrom(data.length);
 
